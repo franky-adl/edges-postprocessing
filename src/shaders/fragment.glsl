@@ -1,32 +1,48 @@
 uniform sampler2D tDiffuse; // this receives the rendered scene as a texture(i.e. including the lighting and shadows)
 uniform vec2 uResolution;
+uniform float texelUnit;
+uniform float multiplier;
 
 varying vec2 vUv;
 
 #define TWO_PI 6.28318530718
+#define PI 3.14159265359
 
-/**
- * The valueAtPoint function takes any texture (diffuse or normal) and 
- * returns the grayscale value at a specified point. 
- * The luma vector is used to calculate the brightness of a color, 
- * hence turning the color into grayscale. The implementation comes from glsl-luma.
- */
-float valueAtPoint(sampler2D image, vec2 coord, vec2 texel, vec2 point) {
+// expected input: vec3(hue, saturation, brightness), all 0 to 1
+// Function from Iñigo Quiles
+// https://www.shadertoy.com/view/MsS3Wc
+vec3 hsb2rgb( in vec3 c ){
+    vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),
+                             6.0)-3.0)-1.0,
+                     0.0,
+                     1.0 );
+    rgb = rgb*rgb*(3.0-2.0*rgb);
+    return c.z * mix( vec3(1.0), rgb, c.y);
+}
+
+float getGrayscale(vec3 color) {
+    // The luma vector is used to calculate the brightness of a color, the implementation comes from glsl-luma.
     vec3 luma = vec3(0.299, 0.587, 0.114);
-
-    return dot(texture2D(image, coord + texel * point).xyz, luma);
-}
-
-float diffuseValue(int x, int y) {
-    return valueAtPoint(tDiffuse, vUv, vec2(1.0 / uResolution.x, 1.0 / uResolution.y), vec2(x, y)) * 0.6;
+    return dot(color, luma);
 }
 
 /**
- * We use the getValue function to pass in the offset from the current pixel,
+ * The colorAtTexelGrid function takes any texture (diffuse or normal) and 
+ * returns the value at a specified cell of a texel grid centered by a point. 
+ */
+vec3 colorAtTexelGrid(sampler2D image, vec2 center, vec2 texelSize, vec2 cellCoord) {
+    return texture2D(image, center + texelSize * cellCoord).xyz;
+}
+
+/**
+ * We use the getValue function to pass in the offset from the current pixel (vUv),
  * thus identifying which pixel in the kernel we are looking at to get that value.
  */
 float getValue(int x, int y) {
-    return diffuseValue(x, y);
+    vec2 texelSize = vec2(texelUnit / uResolution.x, texelUnit / uResolution.y);
+    vec2 cellCoord = vec2(x, y);
+    vec3 color = colorAtTexelGrid(tDiffuse, vUv, texelSize, cellCoord) * multiplier;
+    return getGrayscale(color);
 }
 
 /**
@@ -67,29 +83,22 @@ vec2 SobelValues() {
     return vec2(valueGx, valueGy);
 }
 
-// expected input: vec3(hue, saturation, brightness), all 0 to 1
-// Function from Iñigo Quiles
-// https://www.shadertoy.com/view/MsS3Wc
-vec3 hsb2rgb( in vec3 c ){
-    vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),
-                             6.0)-3.0)-1.0,
-                     0.0,
-                     1.0 );
-    rgb = rgb*rgb*(3.0-2.0*rgb);
-    return c.z * mix( vec3(1.0), rgb, c.y);
-}
-
 void main() {
     vec2 sobelVec = SobelValues();
     float sobelValue = sqrt( (sobelVec.x * sobelVec.x) + (sobelVec.y * sobelVec.y) );
-    sobelValue = smoothstep(0.01, 0.5, sobelValue);
-    float sobelAngle = atan(sobelVec.y/sobelVec.x);
+    // sobelValue = smoothstep(0.01, 0.5, sobelValue);
+    float sobelAngle = atan(sobelVec.y/sobelVec.x); // atan range is from -PI/2 to PI/2
+    // transform angle from radians to 0-1
+    float hue = (sobelAngle+PI/2.0)/PI;
+    vec4 lineColor = vec4(hsb2rgb(vec3(hue, 1.0, 1.0)), 1.0);
+    vec4 black = vec4(0.,0.,0.,1.0);
 
-    vec4 lineColor = vec4(hsb2rgb(vec3((sobelAngle/TWO_PI)+0.5, 1.0, 1.0)), 1.0);
+    // using the sobelValue directly as grayscale color
+    gl_FragColor = vec4(sobelValue, sobelValue, sobelValue, 1.0);
 
-    if (sobelValue > 0.1) {
-        gl_FragColor = lineColor;
-    } else {
-        gl_FragColor = vec4(0.,0.,0.,1.0);
-    }
+    // colorize by direction of edges
+    gl_FragColor = mix(black, lineColor, sobelValue);
+
+    // reverting the colors of the above gives a surprise mix!
+    // gl_FragColor = mix(lineColor, black, sobelValue);
 }

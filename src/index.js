@@ -5,7 +5,7 @@ import Stats from "three/examples/jsm/libs/stats.module"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls"
 
 // Core boilerplate code deps
-import { createCamera, createComposer, createRenderer, runApp } from "./core-utils"
+import { createCamera, createComposer, createRenderer, runApp, getDefaultUniforms } from "./core-utils"
 
 import { EdgesPass } from "./EdgesPass"
 
@@ -16,6 +16,8 @@ global.THREE = THREE
  *************************************************/
 const params = {
   // general scene params
+  texelUnit: 1.0,
+  multiplier: 0.6
 }
 
 
@@ -46,7 +48,8 @@ let camera = createCamera(75, 1, 1000, { x: 0, y: 2, z: 5 })
 // If you don't need post-processing, just comment/delete the following creation code, and skip passing any composer to 'runApp' at the bottom
 let edgesPass = new EdgesPass({
   width: window.innerWidth,
-  height: window.innerHeight
+  height: window.innerHeight,
+  uParams: params
 })
 // The RenderPass is already created in 'createComposer'
 let composer = createComposer(renderer, scene, camera, (comp) => {
@@ -94,6 +97,8 @@ let app = {
 
     // GUI controls
     const gui = new dat.GUI()
+    gui.add(params, 'texelUnit', 1, 20, 1)
+    gui.add(params, 'multiplier', 0.1, 10, 0.1)
 
     // Stats - show fps
     this.stats1 = new Stats()

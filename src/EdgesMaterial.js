@@ -9,7 +9,9 @@ export class EdgesMaterial extends THREE.ShaderMaterial {
 				tDiffuse: { value: null },
 				uResolution: {
 					value: new THREE.Vector2(1, 1)
-				}
+				},
+				texelUnit: { value: 1.0 },
+				multiplier: { value: 0.6 }
 			},
 			fragmentShader: fragmentShader,
 			vertexShader: vertexShader

@@ -3,12 +3,12 @@ import * as THREE from 'three'
 import { EdgesMaterial } from './EdgesMaterial'
 
 export class EdgesPass extends Pass {
-	constructor({ width, height }) {
+	constructor({ width, height, uParams }) {
 		super()
 
 		this.material = new EdgesMaterial()
 		this.fsQuad = new FullScreenQuad(this.material)
-
+		this.uParams = uParams
 		this.material.uniforms.uResolution.value = new THREE.Vector2(width, height)
 	}
 
@@ -23,6 +23,8 @@ export class EdgesPass extends Pass {
 		readBuffer
 	) {
 		this.material.uniforms.tDiffuse.value = readBuffer.texture
+		this.material.uniforms.texelUnit.value = this.uParams.texelUnit
+		this.material.uniforms.multiplier.value = this.uParams.multiplier
 
 		if (this.renderToScreen) {
 			renderer.setRenderTarget(null)
